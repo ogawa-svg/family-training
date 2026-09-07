@@ -1,132 +1,24 @@
-<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f7f7f5">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icon.svg">
-<title>家族トレーニング</title>
-<style>
-:root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;color:#202124;background:#f7f7f5}
-*{box-sizing:border-box} body{margin:0;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom);max-width:760px;margin:auto}
-h1{font-size:23px;margin:18px 0 3px}.sub{color:#6b6b6b;font-size:13px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.card{background:white;border:1px solid #e3e3df;border-radius:18px;padding:15px;margin:12px 0}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.stat{background:#eeeDEA;border-radius:14px;padding:11px}.stat small{display:block;color:#666;margin-bottom:4px}.stat b{font-size:17px}
-.exercise h2{font-size:17px;margin:0}.who{font-size:12px;color:#777}.time{font-size:42px;font-weight:700;font-variant-numeric:tabular-nums;margin:18px 0}
-button{font:inherit;min-height:48px;border-radius:13px;border:1px solid #d7d7d2;background:white;padding:8px 12px}
-.primary{background:#222;color:white;border-color:#222;flex:1}.row{display:flex;gap:8px}.save{width:100%;margin-top:8px}.save:disabled{opacity:.4}
-.titleRow{display:flex;align-items:center;justify-content:space-between;gap:10px}.badge{font-size:12px;color:#666}
-.progress{height:8px;background:#ddd;border-radius:9px;overflow:hidden}.bar{height:100%;background:#222;width:0}
-.history{width:100%;border-collapse:collapse;font-size:13px}.history th,.history td{padding:9px 4px;border-bottom:1px solid #eee;text-align:left}.history td:nth-child(n+2),.history th:nth-child(n+2){text-align:right}
-.edit{min-height:34px;padding:3px 8px;font-size:12px}.note{font-size:12px;color:#777;line-height:1.5}.goal{margin-top:12px}
-@media(max-width:520px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}}
-</style>
-</head>
-<body>
-<h1>家族トレーニング</h1>
-<div class="sub" id="today"></div>
-
-<section class="card">
- <div class="titleRow"><b>📅 今月</b><span class="badge" id="month"></span></div>
- <div class="stats" style="margin-top:10px">
-  <div class="stat"><small>🧱 プランク</small><b id="mp">0秒</b></div>
-  <div class="stat"><small>🪢 縄跳び</small><b id="mr">0秒</b></div>
-  <div class="stat"><small>合計</small><b id="ma">0秒</b></div>
- </div>
-</section>
-
-<section class="card">
- <div class="titleRow"><b>🏆 これまでの累計</b><span class="badge" id="days">0日</span></div>
- <div class="stats" style="margin-top:10px">
-  <div class="stat"><small>プランク</small><b id="tp">0秒</b></div>
-  <div class="stat"><small>縄跳び</small><b id="tr">0秒</b></div>
-  <div class="stat"><small>合計</small><b id="ta">0秒</b></div>
- </div>
- <div class="goal"><div class="titleRow"><span class="badge" id="goalText"></span><span class="badge" id="goalValue"></span></div><div class="progress"><div class="bar" id="goalBar"></div></div></div>
-</section>
-
-<div class="grid">
- <section class="card exercise">
-  <div class="titleRow"><div><h2>🧱 プランク</h2><div class="who">息子さんと</div></div><span class="badge" id="plankStatus">未記録</span></div>
-  <div class="time" id="plankTime">00:00</div>
-  <div class="row"><button class="primary" id="plankStart">START</button><button id="plankReset">リセット</button></div>
-  <button class="save" id="plankSave" disabled>今日の記録に保存</button>
- </section>
- <section class="card exercise">
-  <div class="titleRow"><div><h2>🪢 縄跳び</h2><div class="who">奥さんと</div></div><span class="badge" id="ropeStatus">未記録</span></div>
-  <div class="time" id="ropeTime">00:00</div>
-  <div class="row"><button class="primary" id="ropeStart">START</button><button id="ropeReset">リセット</button></div>
-  <button class="save" id="ropeSave" disabled>今日の記録に保存</button>
- </section>
-</div>
-
-<section class="card">
- <div class="titleRow"><b>🔥 継続</b><span id="streak">連続 0日</span></div>
-</section>
-
-<section class="card">
- <div class="titleRow"><b>最近の記録</b><span class="badge">編集できます</span></div>
- <table class="history"><thead><tr><th>日付</th><th>プランク</th><th>縄跳び</th><th></th></tr></thead><tbody id="history"></tbody></table>
- <p class="note">時間はこの端末のブラウザ内に保存されます。ブラウザのサイトデータを削除すると記録も消えるため、長期利用版ではバックアップ機能の追加がおすすめです。</p>
-</section>
-
-<script>
-const KEY='familyTraining.v1';
-let records=JSON.parse(localStorage.getItem(KEY)||'{}');
-const timers={plank:{s:0,r:false,id:null},rope:{s:0,r:false,id:null}};
-const $=id=>document.getElementById(id);
-const pad=n=>String(n).padStart(2,'0');
-const clock=s=>pad(Math.floor(s/60))+':'+pad(s%60);
-const pretty=s=>s<60?s+'秒':s<3600?Math.floor(s/60)+'分'+(s%60?' '+s%60+'秒':''):Math.floor(s/3600)+'時間 '+Math.floor((s%3600)/60)+'分';
-const keyDate=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const todayKey=keyDate();
-$('today').textContent=new Intl.DateTimeFormat('ja-JP',{dateStyle:'full'}).format(new Date());
-$('month').textContent=(new Date().getMonth()+1)+'月';
-
-function saveDB(){localStorage.setItem(KEY,JSON.stringify(records))}
-function todayRec(){return records[todayKey]||{plank:0,rope:0}}
-function drawTimer(k){
- const t=timers[k]; $(k+'Time').textContent=clock(t.s); $(k+'Start').textContent=t.r?'STOP':'START';
- $(k+'Save').disabled=!t.s||t.r; $(k+'Status').textContent=todayRec()[k]?'✓ 記録済み':'未記録';
-}
-function toggle(k){let t=timers[k];if(t.r){clearInterval(t.id);t.r=false;t.id=null}else{t.r=true;t.id=setInterval(()=>{t.s++;drawTimer(k)},1000)}drawTimer(k)}
-function reset(k){let t=timers[k];if(t.id)clearInterval(t.id);t.r=false;t.id=null;t.s=0;drawTimer(k)}
-function commit(k){let t=timers[k];if(!t.s||t.r)return;records[todayKey]={...todayRec(),[k]:t.s};saveDB();render()}
-['plank','rope'].forEach(k=>{$(k+'Start').onclick=()=>toggle(k);$(k+'Reset').onclick=()=>reset(k);$(k+'Save').onclick=()=>commit(k);drawTimer(k)});
-
-function totals(filter){
- return Object.entries(records).filter(([d])=>!filter||filter(d)).reduce((a,[,r])=>({plank:a.plank+(+r.plank||0),rope:a.rope+(+r.rope||0)}),{plank:0,rope:0});
-}
-function calcStreak(){
- let n=0,d=new Date();for(let i=0;i<5000;i++){let r=records[keyDate(d)];if(r&&(r.plank||r.rope)){n++;d.setDate(d.getDate()-1)}else break}return n;
-}
-function renderHistory(){
- const body=$('history');body.innerHTML='';
- Object.keys(records).sort().reverse().slice(0,14).forEach(d=>{
-  let r=records[d],tr=document.createElement('tr');
-  tr.innerHTML=`<td>${d.slice(5).replace('-','/')}</td><td>${r.plank?clock(r.plank):'−'}</td><td>${r.rope?clock(r.rope):'−'}</td><td><button class="edit">編集</button></td>`;
-  tr.querySelector('button').onclick=()=>{
-   const p=prompt('プランク（秒）',r.plank||0); if(p===null)return;
-   const q=prompt('縄跳び（秒）',r.rope||0); if(q===null)return;
-   const pv=Math.max(0,Math.min(86400,parseInt(p)||0)),qv=Math.max(0,Math.min(86400,parseInt(q)||0));
-   if(!pv&&!qv) delete records[d]; else records[d]={plank:pv,rope:qv}; saveDB();render();
-  };body.appendChild(tr);
- });
- if(!body.children.length){body.innerHTML='<tr><td colspan="4" style="text-align:center;color:#777">まだ記録がありません</td></tr>'}
-}
-function render(){
- const y=new Date().getFullYear(),m=pad(new Date().getMonth()+1),prefix=`${y}-${m}`;
- const mo=totals(d=>d.startsWith(prefix)),all=totals(),sum=all.plank+all.rope;
- $('mp').textContent=pretty(mo.plank);$('mr').textContent=pretty(mo.rope);$('ma').textContent=pretty(mo.plank+mo.rope);
- $('tp').textContent=pretty(all.plank);$('tr').textContent=pretty(all.rope);$('ta').textContent=pretty(sum);
- $('days').textContent=Object.values(records).filter(r=>r.plank||r.rope).length+'日';
- $('streak').textContent='連続 '+calcStreak()+'日';
- const goals=[600,1800,3600,10800,36000,72000,180000],g=goals.find(x=>sum<x)||360000;
- $('goalText').textContent='次の節目 '+pretty(g);$('goalValue').textContent=pretty(sum)+' / '+pretty(g);$('goalBar').style.width=Math.min(100,sum/g*100)+'%';
- ['plank','rope'].forEach(drawTimer);renderHistory();
-}
-render();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
-</script>
-</body></html>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f6f2e8"><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg"><title>家族トレーニング</title>
+<style>:root{--bg:#f6f2e8;--card:#fffdf8;--ink:#18231f;--muted:#6c756f;--green:#315f4c;--line:#ded8ca;--accent:#e9dfc5}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}main{max-width:620px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}h1{font-size:27px;margin:4px 0}.sub,.small{color:var(--muted);font-size:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin:12px 0}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}button,input{font:inherit}button{border:0;border-radius:13px;padding:11px 14px;background:var(--accent);font-weight:700}button.primary,.active{background:var(--green)!important;color:white!important}.ghost{background:transparent;border:1px solid var(--line)}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.memberbar{display:flex;gap:7px;overflow:auto}.memberbar button{white-space:nowrap}.activity,.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.act,.stat{border:1px solid var(--line);border-radius:17px;padding:14px;background:#fff}.act h3{margin:0}.time{font-size:31px;font-weight:800;margin:7px 0;font-variant-numeric:tabular-nums}.stat b{display:block;font-size:19px;margin-top:4px}.hidden{display:none!important}.history{padding:0;margin:0;list-style:none}.history li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.login{min-height:78vh;display:grid;place-items:center}.loginbox{width:100%;max-width:420px}.loginbox input,.nameInput input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;margin:6px 0;background:white}.error{color:#a22;font-size:13px}.loading{opacity:.55;pointer-events:none}@media(max-width:390px){.activity{grid-template-columns:1fr}}</style></head><body><main>
+<section id="login" class="login"><div class="loginbox card"><h1>家族トレーニング</h1><p class="sub">家族だけの記録帳 🏠</p><input id="email" type="email" placeholder="メールアドレス"><input id="password" type="password" placeholder="パスワード"><button id="loginBtn" class="primary" style="width:100%">ログイン</button><p id="loginError" class="error"></p></div></section>
+<section id="app" class="hidden"><div class="row between"><div><h1>家族トレーニング</h1><div id="dateLabel" class="sub"></div></div><button id="logoutBtn" class="ghost">ログアウト</button></div>
+<div class="tabs"><button id="personalTab" class="active">自分の記録</button><button id="familyTab">家族の積み上げ</button></div>
+<div id="personalView"><div class="card"><div class="small">記録する人</div><div id="memberbar" class="memberbar"></div></div>
+<div class="activity"><div class="act"><h3>プランク</h3><div id="plankTime" class="time">00:00</div><div class="row"><button id="plankStart" class="primary">スタート</button><button id="plankReset">リセット</button></div><div id="plankSaved" class="small"></div></div>
+<div class="act"><h3>なわとび</h3><div id="ropeTime" class="time">00:00</div><div class="row"><button id="ropeStart" class="primary">スタート</button><button id="ropeReset">リセット</button></div><div id="ropeSaved" class="small"></div></div></div>
+<div class="card"><b id="memberTitle">個人の積み上げ</b><div class="stats" style="margin-top:10px"><div class="stat"><span class="small">今月 プランク</span><b id="mp">0分</b></div><div class="stat"><span class="small">今月 なわとび</span><b id="mr">0分</b></div><div class="stat"><span class="small">累計 プランク</span><b id="tp">0分</b></div><div class="stat"><span class="small">累計 なわとび</span><b id="tr">0分</b></div></div></div></div>
+<div id="familyView" class="hidden"><div class="card"><b>🏠 家族の積み上げ</b><div class="stats" style="margin-top:10px"><div class="stat"><span class="small">今月 プランク</span><b id="fmp">0分</b></div><div class="stat"><span class="small">今月 なわとび</span><b id="fmr">0分</b></div><div class="stat"><span class="small">家族累計 プランク</span><b id="ftp">0分</b></div><div class="stat"><span class="small">家族累計 なわとび</span><b id="ftr">0分</b></div></div><p class="small">家族みんなの総運動時間</p><div id="familyGrand" class="time">0分</div></div><div class="card"><b>メンバー別 累計</b><ul id="familyList" class="history"></ul></div></div>
+<div class="card"><div class="row between"><b>家族設定</b><button id="toggleSettings" class="ghost">名前を設定</button></div><div id="settingsBody" class="hidden"><p class="small">家族5人の名前を入力してください。</p><div id="nameInputs"></div><button id="saveNames" class="primary">名前を保存</button><p id="settingsMsg" class="small"></p></div></div></section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+const db=supabase.createClient("https://okmhsvxeoxwqqejfnnpc.supabase.co","sb_publishable_AZDA0z7oeWvhj7Vw-cUO3g_IzzVUrq2"),$=x=>document.getElementById(x),today=()=>new Date().toLocaleDateString('sv-SE'),month=()=>today().slice(0,7);let members=[],records=[],selected=null,timers={plank:{s:0,id:null},rope:{s:0,id:null}};const fmt=s=>{s=+s||0;if(s<60)return s+"秒";let m=Math.floor(s/60),r=s%60;if(m<60)return m+"分"+(r?" "+r+"秒":"");let h=Math.floor(m/60);m%=60;return h+"時間"+(m?m+"分":"")},clock=s=>String(Math.floor(s/60)).padStart(2,'0')+":"+String(s%60).padStart(2,'0'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function boot(){let {data:{session}}=await db.auth.getSession();$('login').classList.toggle('hidden',!!session);$('app').classList.toggle('hidden',!session);if(session)await load()}
+$('loginBtn').onclick=async()=>{let {error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('loginError').textContent=error?"ログインできませんでした。入力を確認してください。":"";if(!error)boot()};$('logoutBtn').onclick=async()=>{await db.auth.signOut();location.reload()};
+async function load(){let [m,r]=await Promise.all([db.from('family_members').select('*').order('sort_order'),db.from('training_records').select('*')]);if(m.error||r.error){alert("読み込みに失敗しました");return}members=m.data||[];records=r.data||[];let pref=localStorage.getItem('familyTraining.memberId');selected=members.find(x=>String(x.id)===pref)?.id||members[0]?.id||null;if(!members.length)showSettings(true);render()}
+function sum(a,act){return a.filter(x=>x.activity===act).reduce((n,x)=>n+x.seconds,0)}function render(){$('dateLabel').textContent=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});$('memberbar').innerHTML=members.map(m=>`<button data-id="${m.id}" class="${m.id===selected?'active':''}">${esc(m.name)}</button>`).join('');document.querySelectorAll('#memberbar button').forEach(b=>b.onclick=()=>{selected=+b.dataset.id;localStorage.setItem('familyTraining.memberId',selected);render()});let own=records.filter(r=>r.member_id===selected),mon=own.filter(r=>r.training_date.startsWith(month())),sm=members.find(m=>m.id===selected);$('memberTitle').textContent=(sm?.name||"個人")+"の積み上げ";$('mp').textContent=fmt(sum(mon,'プランク'));$('mr').textContent=fmt(sum(mon,'なわとび'));$('tp').textContent=fmt(sum(own,'プランク'));$('tr').textContent=fmt(sum(own,'なわとび'));let fm=records.filter(r=>r.training_date.startsWith(month()));$('fmp').textContent=fmt(sum(fm,'プランク'));$('fmr').textContent=fmt(sum(fm,'なわとび'));$('ftp').textContent=fmt(sum(records,'プランク'));$('ftr').textContent=fmt(sum(records,'なわとび'));$('familyGrand').textContent=fmt(records.reduce((n,r)=>n+r.seconds,0));$('familyList').innerHTML=members.map(m=>`<li><span>${esc(m.name)}</span><b>${fmt(records.filter(r=>r.member_id===m.id).reduce((n,r)=>n+r.seconds,0))}</b></li>`).join('');let td=own.filter(r=>r.training_date===today());$('plankSaved').textContent="今日の記録："+fmt(td.find(r=>r.activity==='プランク')?.seconds||0);$('ropeSaved').textContent="今日の記録："+fmt(td.find(r=>r.activity==='なわとび')?.seconds||0)}
+function timer(k,a){let t=timers[k],el=$(k==='plank'?'plankTime':'ropeTime'),btn=$(k==='plank'?'plankStart':'ropeStart');if(t.id){clearInterval(t.id);t.id=null;btn.textContent="スタート";save(a,t.s);return}t.id=setInterval(()=>{t.s++;el.textContent=clock(t.s)},1000);btn.textContent="停止して保存"}function reset(k){let t=timers[k];if(t.id)clearInterval(t.id);t.id=null;t.s=0;$(k==='plank'?'plankTime':'ropeTime').textContent="00:00";$(k==='plank'?'plankStart':'ropeStart').textContent="スタート"}
+$('plankStart').onclick=()=>timer('plank','プランク');$('ropeStart').onclick=()=>timer('rope','なわとび');$('plankReset').onclick=()=>reset('plank');$('ropeReset').onclick=()=>reset('rope');
+async function save(a,s){if(!selected||!s)return;let e=records.find(r=>r.member_id===selected&&r.activity===a&&r.training_date===today()),q=e?await db.from('training_records').update({seconds:e.seconds+s,updated_at:new Date().toISOString()}).eq('id',e.id).select().single():await db.from('training_records').insert({member_id:selected,activity:a,training_date:today(),seconds:s}).select().single();if(q.error){alert("保存できませんでした");return}if(e)Object.assign(e,q.data);else records.push(q.data);reset(a==='プランク'?'plank':'rope');render()}
+$('personalTab').onclick=()=>tab(true);$('familyTab').onclick=()=>tab(false);function tab(p){$('personalView').classList.toggle('hidden',!p);$('familyView').classList.toggle('hidden',p);$('personalTab').classList.toggle('active',p);$('familyTab').classList.toggle('active',!p)}
+$('toggleSettings').onclick=()=>showSettings($('settingsBody').classList.contains('hidden'));function showSettings(v){$('settingsBody').classList.toggle('hidden',!v);if(v){let d=['遊','妻','長男','次男','娘'];$('nameInputs').innerHTML=Array.from({length:5},(_,i)=>`<div class="nameInput"><input maxlength="20" value="${esc(members[i]?.name||d[i])}"></div>`).join('')}}
+$('saveNames').onclick=async()=>{let n=[...document.querySelectorAll('#nameInputs input')].map(x=>x.value.trim());if(n.some(x=>!x)){return $('settingsMsg').textContent="5人分入力してください"};if(!members.length){let q=await db.from('family_members').insert(n.map((name,i)=>({name,sort_order:i+1}))).select().order('sort_order');if(q.error)return $('settingsMsg').textContent="保存できませんでした";members=q.data}else{for(let i=0;i<5;i++){let q=await db.from('family_members').update({name:n[i]}).eq('id',members[i].id);if(q.error)return $('settingsMsg').textContent="保存できませんでした";members[i].name=n[i]}}selected=selected||members[0].id;$('settingsMsg').textContent="保存しました ✓";render()};boot();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js');
+</script></body></html>
